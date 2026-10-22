@@ -56,6 +56,15 @@
   var NICKNAMES = ["nitw", "nitk", "nitt", "nitc", "nitr", "mnnit", "vnit", "svnit", "manit", "mnit", "iiest", "pec",
     "bit mesra", "iitb", "iitd", "iitm", "iitk", "iitkgp", "iith", "iitr", "iitg", "iit bhu", "ism dhanbad", "iiita", "iiitm",
     "iiith", "iiitd", "iiitb", "dtu", "nsut", "bits pilani", "bits", "vit"];
+  // Telangana state colleges (TG EAPCET counselling). Longer names first.
+  var STATE_COLLEGES = ["chaitanya bharathi", "b v raju", "bv raju", "vnr vjiet", "vnrvjiet", "vignana jyothi", "keshav memorial",
+    "mahatma gandhi institute", "gokaraju rangaraju", "malla reddy", "marri laxman", "nalla malla", "guru nanak",
+    "g narayanamma", "gnits", "vignana bharathi", "cbit", "bvrit", "vnr", "vasavi", "mgit", "griet", "gokaraju", "cvr", "kmit",
+    "iare", "vardhaman", "anurag", "cmrit", "cmr", "mlrit", "jntuh", "jntu", "kits", "matrusri", "methodist", "stanley",
+    "vbit", "geethanjali", "mrec", "aurora", "st martins"];
+  var PLACE_WORDS = ["hyderabad", "narsapur", "bachupally", "women", "girls", "gandipet", "kukatpally", "medchal", "jagitial",
+    "warangal", "manthani", "sultanpur", "hyd", "campus"];
+
   var STOP = { can: 1, for: 1, does: 1, have: 1, has: 1, with: 1, are: 1, will: 1, she: 1, he: 1, i: 1, we: 1, offer: 1,
     or: 1, and: 1, vs: 1, versus: 1, to: 1, at: 1, in: 1, the: 1, her: 1, his: 1, is: 1, cse: 1, ece: 1, eee: 1, it: 1,
     computer: 1, electrical: 1, electronics: 1, mechanical: 1, civil: 1, chemical: 1, cutoff: 1, cut: 1, list: 1, top: 1,
@@ -69,6 +78,9 @@
       .replace(/(\d),(?=\d{3}\b)/g, "$1")
       .replace(/(\d+(?:\.\d+)?)\s*(k|thousand)\b/g, function (_, n) { return String(Math.round(parseFloat(n) * 1000)); })
       .replace(/(\d+(?:\.\d+)?)\s*lakh\b/g, function (_, n) { return String(Math.round(parseFloat(n) * 100000)); })
+      .replace(/\b(hyderbad|hydrabad|hyderbaad|hyderabd|hydarabad|hyd)\b/g, "hyderabad")
+      .replace(/\b(clg|colg|collage)\b/g, "college").replace(/\bu\b/g, "you")
+      .replace(/\bc ?b ?i ?t\b/g, "cbit").replace(/\bb ?v ?r ?i ?t\b/g, "bvrit").replace(/\bv ?n ?r\b/g, "vnr")
       .replace(/\btriple ?i ?t\b/g, "iiit").replace(/\bi i i t\b/g, "iiit").replace(/\bi i t\b/g, "iit").replace(/\bn i t\b/g, "nit")
       .replace(/\s+/g, " ").trim();
   }
@@ -95,9 +107,23 @@
         if (!covered) found.push({ name: n, at: mm.index });
       }
     });
+    STATE_COLLEGES.forEach(function (n) {
+      var r = new RegExp("\\b" + n + "\\b", "g"), mm;
+      while ((mm = r.exec(t))) {
+        var covered = found.some(function (f) { return mm.index >= f.at && mm.index < f.at + f.span; });
+        if (covered) continue;
+        // keep words like "in Hyderabad", "Narsapur" or "women" that tell apart campuses with the same name
+        var tail = t.slice(mm.index + n.length).split(/\b(?:and|or|vs|versus|with)\b/)[0].split(" ").slice(0, 4);
+        var extra = tail.filter(function (w) { return PLACE_WORDS.indexOf(w) >= 0; });
+        found.push({ name: n + (extra.length ? " " + extra.join(" ") : ""), at: mm.index, span: n.length, state: true });
+      }
+    });
+    found.forEach(function (f) { if (!f.span) f.span = f.name.length; });
     found.sort(function (a, b) { return a.at - b.at; });
+    lastFoundState = found.map(function (f) { return !!f.state; });
     return found.map(function (f) { return f.name; });
   }
+  var lastFoundState = [];
 
   function findTerm(t) {
     for (var i = 0; i < TERMS.length; i++) if (t.indexOf(TERMS[i]) >= 0) return TERMS[i];
@@ -106,18 +132,22 @@
 
   function parseProfile(t, raw) {
     var args = {};
-    var nameM = raw.match(/\b(?:my (?:daughter|son|child|kid|sister|brother)|student(?:'s)? name is|name is|this is)\s+([A-Z][a-z]+)/)
+    var nameM = raw.match(/\b(?:[Mm]y (?:daughter|son|child|kid|sister|brother)|[Ss]tudent(?:'s)? name is|[Nn]ame is|[Tt]his is)\s+([A-Z][a-z]+)/)
       || raw.match(/^\s*([A-Z][a-z]+)\s+(?:got|has|scored|secured|is|ranked)\b/);
     if (nameM && !/^(She|He|Alexa|What|Which|Can|My|Her|His|The)$/.test(nameM[1])) args.name = nameM[1];
     if (/\b(she|her|daughter|girl|sister)\b/.test(t)) args.gender = "Female";
     else if (/\b(he|his|son|boy|brother)\b/.test(t)) args.gender = "Male";
     var cat = t.match(/\b(general|gen|open|ews|obc|sc|st)\b/);
     if (cat) args.category = { general: "GENERAL", gen: "GENERAL", open: "OPEN", ews: "EWS", obc: "OBC", sc: "SC", st: "ST" }[cat[1]];
+    var tc = t.match(/\b(bc|sc)[\s_-]?([a-e]|iii|ii|i|1|2|3)\b/);
+    if (tc) args.telangana_category = (tc[1] + "-" + tc[2]).toUpperCase();
+    else if (/\boc\b/.test(t)) args.telangana_category = "OC";
     var re = /\d{2,7}/g, m;
     while ((m = re.exec(t))) {
       var n = parseInt(m[0], 10), before = t.slice(Math.max(0, m.index - 28), m.index), after = t.slice(m.index, m.index + 24);
-      if (/round\s*$|choice\s*$|number\s*$|class\s*$|in\s*$/.test(before) && !/rank|main|advanced/.test(before)) continue;
+      if (/round\s*$|choice\s*$|number\s*$|class\s*$|in\s*$/.test(before) && !/rank|main|advanced|eapcet|eamcet/.test(before)) continue;
       if (/20\d\d/.test(m[0]) && m[0].length === 4 && /\bin\s*$/.test(before)) continue;
+      if (/eapcet|eamcet/.test(before) || /^\d+\s*(in )?(the )?(ts |tg )?(eapcet|eamcet)/.test(after)) { args.eapcet_rank = n; continue; }
       if (/advanced/.test(before) || /^\d+\s*(in )?(jee )?advanced/.test(after)) { if (/obc|ews|sc|st|category/.test(before.slice(-14))) args.advanced_category_rank = n; else args.jee_advanced_rank = n; }
       else if (/\b(obc|ews|sc|st|category)\b[^\d]*$/.test(before) || /^\d+\s*in (obc|ews|sc|st|category)/.test(after)) args.category_rank = n;
       else if (!args.jee_main_rank) args.jee_main_rank = n;
@@ -166,45 +196,71 @@
       return [["whats_next", step ? { step: step } : {}]];
     }
 
+    var anyState = lastFoundState.some(Boolean);
+
     // compare
-    if ((/\bor\b|\bvs\b|versus|compare|better/.test(t)) && (insts.length >= 2 || (insts.length === 1 && /\bor\b/.test(t)))) {
+    if ((/\bor\b|\bvs\b|versus|compare|better|difference/.test(t)) && (insts.length >= 2 || (insts.length === 1 && /\bor\b/.test(t)))) {
       var parts = t.split(/\bor\b|\bvs\b|versus|compared? (?:to|with)|\band\b/);
       var A = parts.length > 1 ? parts[0] : t, B = parts.length > 1 ? parts.slice(1).join(" ") : t;
       var ia = findInstitutes(A)[0] || insts[0], ib = findInstitutes(B)[0] || insts[1] || insts[0];
+      findInstitutes(t);
+      // "compare BVRIT and CBIT in Hyderabad": the place at the end applies to both colleges
+      var place = (t.match(/\bin (hyderabad|narsapur|bachupally|warangal)\b[^,]*$/) || [])[1];
+      if (place) {
+        if (ia.indexOf(place) < 0 && STATE_COLLEGES.some(function (s) { return ia.indexOf(s) === 0; })) ia += " " + place;
+        if (ib.indexOf(place) < 0 && STATE_COLLEGES.some(function (s) { return ib.indexOf(s) === 0; })) ib += " " + place;
+      }
       var ba = findBranch(A, raw.split(/ or | vs | versus /i)[0]) || branch || ctx.branch;
       var bb = findBranch(B, raw.split(/ or | vs | versus /i).slice(1).join(" ")) || ba;
-      if (!ba) return say("Which branch should I compare? For example, CSE at NIT Warangal or ECE at NIT Trichy.");
-      ctx.lastOption = { institute: ia, branch: ba };
-      return [["compare_options", { institute_a: ia, branch_a: ba, institute_b: ib, branch_b: bb }]];
+      var cmp = { institute_a: ia, institute_b: ib };
+      if (ba) cmp.branch_a = ba;
+      if (bb) cmp.branch_b = bb;
+      ctx.lastOption = { institute: ia, branch: ba || "CSE" };
+      return [["compare_options", cmp]];
     }
 
-    // cutoffs, branches
-    if (insts.length && /cut ?off|closing rank|trend|last year|previous year|history|changed/.test(t)) {
-      var br = branch || ctx.branch;
-      if (!br) return [["find_programs", { institute: insts[0] }]];
-      return [["cutoff_trend", { institute: insts[0], branch: br }]];
+    // cutoffs, branches, about a college
+    if (insts.length && /cut ?off|closing rank|last rank|trend|last year|previous year|history|changed/.test(t)) {
+      var ct = { institute: insts[0] };
+      if (branch || ctx.branch) ct.branch = branch || ctx.branch;
+      return [["cutoff_trend", ct]];
     }
     if (insts.length && /\b(branches|programs|programmes|courses)\b|what does .* (offer|have)/.test(t)) {
       return [["find_programs", { institute: insts[0] }]];
+    }
+    if (insts.length && /\babout\b|tell me|what is|how is|autonomous|located|where is|details of|info/.test(t) && !/chance|can (she|he|i|we) get/.test(t)) {
+      return [["college_info", { college: insts[0] }]];
     }
 
     // the student
     var prof = parseProfile(t, raw);
     var calls = [];
-    var hasProfile = prof.jee_main_rank || prof.category_rank || prof.jee_advanced_rank || prof.home_state || prof.name ||
-      (prof.category && !insts.length);
-    if (hasProfile && !(insts.length && !prof.jee_main_rank && !prof.home_state)) {
-      if (!prof.jee_main_rank && !prof.jee_advanced_rank && !prof.category_rank && !prof.home_state && !prof.category) delete prof.gender;
+    var hasProfile = prof.jee_main_rank || prof.category_rank || prof.jee_advanced_rank || prof.eapcet_rank || prof.home_state ||
+      prof.name || ((prof.category || prof.telangana_category) && !insts.length);
+    if (hasProfile && !(insts.length && !prof.jee_main_rank && !prof.eapcet_rank && !prof.home_state)) {
+      if (!prof.jee_main_rank && !prof.jee_advanced_rank && !prof.category_rank && !prof.eapcet_rank && !prof.home_state &&
+          !prof.category && !prof.telangana_category) delete prof.gender;
       calls.push(["set_student", prof]);
     }
     if (/what (details|do you know)|her details|his details|profile/.test(t)) return [["get_student", {}]];
 
-    // one option
+    // one college
     if (insts.length) {
       var b = branch || ctx.branch;
-      if (!b) return calls.concat([["find_programs", { institute: insts[0] }]]);
-      ctx.lastOption = { institute: insts[0], branch: b };
-      return calls.concat([["check_option", { institute: insts[0], branch: b }]]);
+      if (!b && !anyState) return calls.concat([["find_programs", { institute: insts[0] }]]);
+      ctx.lastOption = { institute: insts[0], branch: b || "CSE" };
+      var co = { institute: insts[0] };
+      if (b) co.branch = b;
+      return calls.concat([["check_option", co]]);
+    }
+
+    // Telangana state colleges (EAPCET)
+    if (/eapcet|eamcet|telangana colleges|state colleges|hyderabad colleges|colleges in hyderabad|private colleges|hyderabad/.test(t) &&
+        /which|what|options|colleges|get|suggest|list/.test(t)) {
+      var ta = {};
+      if (branch) ta.branch = branch;
+      if (/hyderabad/.test(t)) ta.hyderabad_only = true;
+      return calls.concat([["predict_telangana_colleges", ta]]);
     }
 
     // which colleges
@@ -219,8 +275,9 @@
       ctx.lastOption = { institute: ctx.inst, branch: branch };
       return [["check_option", { institute: ctx.inst, branch: branch }]];
     }
-    return say("I can help with JoSAA admissions: tell me the student's rank, ask which colleges they can get, " +
-      "check or compare a college and branch, build the choice list, or explain words like float and slide.");
+    return say("I can help with engineering admissions: JoSAA colleges like IITs and NITs, and Telangana colleges like " +
+      "CBIT, VNR and BVRIT. Tell me the student's rank, ask which colleges they can get, compare two colleges, build the " +
+      "choice list, or ask what words like float and slide mean.");
   }
 
   function say(text) { return [["__say", { text: text }]]; }
@@ -291,7 +348,10 @@
       if (r) c = r;
     }
     var html;
-    if (c.tool === "predict_colleges") html = predictCard(c);
+    var state = /TG EAPCET/.test(c.text);
+    if (c.tool === "compare_options" && /^Comparing /.test(c.text)) html = tgCompareCard(c.text);
+    else if (state && /^(check_option|cutoff_trend|college_info|find_programs)$/.test(c.tool)) html = tgCollegeCard(c.text);
+    else if (c.tool === "predict_colleges" || c.tool === "predict_telangana_colleges") html = predictCard(c);
     else if (c.tool === "check_option" || c.tool === "cutoff_trend") html = optionsCard(c.text, c.tool === "cutoff_trend" ? "Cutoff history" : "Your chances");
     else if (c.tool === "compare_options") html = compareCard(c.text);
     else if (c.tool === "read_choices") html = choicesCard(c.text);
@@ -301,8 +361,11 @@
   }
 
   function predictCard(c) {
-    var head = (c.text.match(/here are (.*?)\./) || [])[1] || "Options";
-    var html = '<div class="card"><h3>' + esc(head.charAt(0).toUpperCase() + head.slice(1)) + '</h3><div class="sub">From official JoSAA final-round closing ranks, 2023 to 2025</div><div class="bands">';
+    var state = c.tool === "predict_telangana_colleges";
+    var head = state ? ((c.text.match(/phase\), (.*?) with EAPCET/) || [])[1] || "Telangana college options")
+                     : ((c.text.match(/here are (.*?)\./) || [])[1] || "Options");
+    var source = state ? "From official TG EAPCET 2025 last ranks" : "From official JoSAA final-round closing ranks, 2023 to 2025";
+    var html = '<div class="card"><h3>' + esc(head.charAt(0).toUpperCase() + head.slice(1)) + '</h3><div class="sub">' + source + '</div><div class="bands">';
     ["Safe", "Target", "Reach"].forEach(function (b) {
       var m = c.text.match(new RegExp(b + "[^:(]*\\((\\d+)\\): (.*?)\\.(?: |$)"));
       var items = [], more = "";
@@ -352,6 +415,56 @@
     if (!a || !b) return textCard({ tool: "Comparison", text: text });
     return '<div class="card"><h3>Comparison</h3><div class="sub">Official closing ranks, final round</div>' + optionBlock(a) + optionBlock(b) +
       (verdict ? '<div class="verdict">' + esc(verdict) + "</div>" : "") + "</div>";
+  }
+
+  // ---- Telangana state colleges ----
+  function cutoffs(text) {
+    var boys = (text.match(/rank ([\d,]+) for OC general seats/) || [])[1];
+    var girls = (text.match(/([\d,]+) for OC girls' seats/) || [])[1];
+    return '<div class="vs">' + (boys ? "<span>OC general<br><b>" + esc(boys) + "</b></span>" : "") +
+      (girls ? "<span>OC girls<br><b>" + esc(girls) + "</b></span>" : "") + "</div>";
+  }
+  function chips(profile) {
+    return '<div class="tags">' + profile.split(", ").map(function (p) { return "<span>" + esc(p) + "</span>"; }).join("") + "</div>";
+  }
+  function chanceLine(text, who) {
+    var m = text.match(new RegExp((who ? esc(who) + " is " : "") + "(safe|target|reach|unlikely|not eligible)[^:]*: ([^;.]*)", "i"));
+    if (!m) return "";
+    var band = m[1].charAt(0).toUpperCase() + m[1].slice(1);
+    return '<div class="chance">' + badge(band === "Not eligible" ? "Unlikely" : band) + " <span>" + esc(m[2]) + "</span></div>";
+  }
+
+  function tgCollegeCard(text) {
+    var m = text.match(/^(.*?) at (.*?) \((.*?)\)\. In the/) || text.match(/^(.*?): (.*?)\. Admission/);
+    if (!m) return textCard({ tool: "college_info", text: text });
+    var isInfo = m.length === 3;
+    var name = isInfo ? m[1] : m[2], branchName = isInfo ? "" : m[1], profile = isInfo ? m[2] : m[3];
+    var note = (text.match(/Note: (.*)$/) || [])[1];
+    return '<div class="card"><h3>' + esc(name) + '</h3><div class="sub">' + (branchName ? esc(branchName) + " · " : "") +
+      "Official TG EAPCET 2025 last ranks</div>" + chips(profile) + cutoffs(text) + chanceLine(text) +
+      (note ? '<div class="verdict warn">' + esc(note) + "</div>" : "") + "</div>";
+  }
+
+  function tgCompareCard(text) {
+    var re = /(First|Second), (.*?): (.*?); it (.*?)\./g, m, cols = [];
+    while ((m = re.exec(text))) cols.push({ name: m[2], profile: m[3], cut: "it " + m[4] });
+    if (cols.length < 2) return textCard({ tool: "Comparison", text: text });
+    var verdicts = [];
+    var comp = text.match(/([^.]*? is more competitive[^.]*)\./);
+    if (comp) verdicts.push(comp[1]);
+    var safer = text.match(/([^.]*? is the safer choice)\./);
+    if (safer) verdicts.push(safer[1]);
+    var note = (text.match(/Note: (.*)$/) || [])[1];
+    var who = (text.match(/For (\w+): /) || [])[1];
+    var html = '<div class="card"><h3>Comparison</h3><div class="sub">Official TG EAPCET 2025 last ranks</div><div class="cols">';
+    cols.forEach(function (c) {
+      var part = who ? (text.match(new RegExp(esc(c.name).replace(/[.*+?^${}()|[\]\\]/g, "\\$&") + " is ([^;.]*)")) || [])[1] : null;
+      html += '<div class="col-card"><div class="name">' + esc(c.name) + "</div>" + chips(c.profile) + cutoffs(c.cut) +
+        (part ? chanceLine(part.replace(/^(\w)/, function (x) { return x; })) : "") + "</div>";
+    });
+    html += "</div>" + verdicts.map(function (v) { return '<div class="verdict">' + esc(v) + "</div>"; }).join("") +
+      (note ? '<div class="verdict warn">' + esc(note) + "</div>" : "") + "</div>";
+    return html;
   }
 
   function choicesCard(text) {

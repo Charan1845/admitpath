@@ -141,6 +141,59 @@ def test_explanations():
     assert "seat acceptance" in tools.whats_next("round 1").lower()
 
 
+# ---------------- Telangana state colleges (TG EAPCET) ----------------
+
+from admitpath.tgeapcet import tg_catalog, ts_category  # noqa: E402
+
+
+def test_tg_data_loaded():
+    t = tg_catalog()
+    assert t.year == 2025 and len(t.colleges) >= 150
+
+
+@pytest.mark.parametrize("spoken,code", [("cbit", "CBIT"), ("bvrit in hyderabad clg", "BVRW"), ("bvrit women", "BVRW"),
+                                         ("bvrit narsapur", "BVRI"), ("vnr vjiet", "VJEC"), ("griet", "GRRR"), ("kmit", "KMIT")])
+def test_tg_names(spoken, code):
+    assert tg_catalog().find(spoken)[0].code == code
+
+
+def test_bvrit_alone_mentions_both_campuses():
+    best, others, _ = tg_catalog().find("bvrit")
+    assert best.code == "BVRI" and [o.code for o in others] == ["BVRW"]
+
+
+def test_state_colleges_are_told_apart_from_josaa():
+    assert tools.is_state_college("cbit") and tools.is_state_college("bvrit in hyderabad")
+    assert not tools.is_state_college("IIT Hyderabad") and not tools.is_state_college("NIT Warangal")
+
+
+@pytest.mark.parametrize("text,cat", [("BC-B", "BC_B"), ("bc b", "BC_B"), ("SC-II", "SC_II"), ("sc 3", "SC_III"),
+                                      ("OC", "OC"), ("general", "OC"), ("EWS", "EWS")])
+def test_telangana_categories(text, cat):
+    assert ts_category(text) == cat
+
+
+def test_compare_bvrit_and_cbit_without_a_student():
+    out = tools.compare_options("bvrit in hyderabad clg", None, "cbit", None)
+    assert "BVRIT College of Engineering for Women" in out and "Chaitanya Bharathi" in out
+    assert "2,053" in out and "more competitive" in out and "Narsapur" in out
+
+
+def test_state_college_chances_use_eapcet_rank_and_women_only_rule():
+    tools.set_student("Riya", gender="Female", eapcet_rank=6000, telangana_category="BC-B")
+    out = tools.compare_options("bvrit in hyderabad", None, "cbit", None)
+    assert "safer choice" in out and "BC-B girls seat" in out
+    tools.set_student("Arjun", gender="Male", eapcet_rank=6000, telangana_category="OC")
+    assert "not eligible" in tools.check_option("bvrit women")
+    pred = tools.predict_telangana_colleges("cse", hyderabad_only=True)
+    assert "Safe" in pred and "TG EAPCET" in pred
+
+
+def test_josaa_and_state_college_are_not_mixed_up():
+    out = tools.compare_options("NIT Warangal", "CSE", "CBIT", "CSE")
+    assert "different exams" in out
+
+
 # ---------------- over MCP ----------------
 
 def rpc(client, method, params=None, id_=1):
@@ -158,7 +211,7 @@ def test_mcp_tools_list_and_call():
         assert init["result"]["serverInfo"]["name"] == "admitpath"
         names = {t["name"] for t in rpc(client, "tools/list")["result"]["tools"]}
         assert {"set_student", "predict_colleges", "check_option", "compare_options", "add_choice",
-                "explain_term"} <= names and len(names) == 13
+                "explain_term", "college_info", "predict_telangana_colleges"} <= names and len(names) == 15
         out = rpc(client, "tools/call", {"name": "explain_term", "arguments": {"term": "freeze"}})
         assert "accept the seat" in out["result"]["content"][0]["text"]
         assert client.get("/healthz").json()["years"] == [2023, 2024, 2025]

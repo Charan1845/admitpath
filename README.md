@@ -12,6 +12,7 @@ Every year families face a maze: over 100 institutes, hundreds of branches, quot
 - **Builds the choice list** that families fill on the JoSAA portal, by voice.
 - **Explains the process** in plain words: freeze, float, slide, quotas, seat acceptance, CSAB.
 - **Says clearly when a college isn't in JoSAA** (IIIT Hyderabad, IIIT Delhi, DTU, BITS, VIT).
+- **Telangana state colleges too.** CBIT, VNR VJIET, BVRIT, Vasavi, MGIT, GRIET, KMIT, JNTUH and 165 colleges in all, from the **official TG EAPCET 2025 last-rank statements**. "Compare BVRIT and CBIT in Hyderabad" gives location, type, women-only status, affiliation, official cutoffs and the student's chances by EAPCET rank and Telangana category (OC, BC-A to BC-E, SC-I to SC-III, ST, EWS). It notices when one name means two campuses (BVRIT Hyderabad for women vs B V Raju Institute in Narsapur).
 
 ```
 "Riya got 15,000 in JEE Main. She's OBC, rank 3,500, from Telangana."
@@ -31,7 +32,7 @@ Every year families face a maze: over 100 institutes, hundreds of branches, quot
 ```mermaid
 flowchart LR
     U["Family speaks"] --> A["Alexa+<br/>picks a tool"]
-    A -->|"MCP 2025-11-25<br/>Streamable HTTP"| S["AdmitPath MCP server<br/>(Python, 13 tools)"]
+    A -->|"MCP 2025-11-25<br/>Streamable HTTP"| S["AdmitPath MCP server<br/>(Python, 15 tools)"]
     S --> C[("Official JoSAA cutoffs<br/>2023–2025, in memory")]
     S --> P[("SQLite<br/>student profile · choice list")]
     J["JoSAA archive<br/>josaa.admissions.nic.in"] -->|"one-time download<br/>scripts/fetch_josaa.py"| C
@@ -47,12 +48,14 @@ Answers come from local data in **16–43 ms**, well under Alexa+'s 500 ms limit
 
 These are estimates from past official data, not guarantees, and every answer shows the numbers behind it.
 
-## The 13 tools
+## The 15 tools
 
 | Group | Tool | Example |
 |---|---|---|
-| Student | `set_student`, `get_student` | "Riya got 15,000, OBC, from Telangana" |
+| Student | `set_student`, `get_student` | "Riya got 15,000, OBC, from Telangana" / "her EAPCET rank is 6,000, BC-B" |
 | Colleges | `predict_colleges` | "Which NITs can she get for CSE?" |
+| | `predict_telangana_colleges` | "Which Hyderabad colleges can she get for CSE?" |
+| | `college_info` | "Tell me about VNR VJIET" |
 | | `check_option` | "Can she get CSE at NIT Warangal?" |
 | | `compare_options` | "CSE at NIT Warangal or ECE at NIT Trichy?" |
 | | `cutoff_trend` | "How has NIT Calicut CSE's cutoff changed?" |
@@ -118,7 +121,9 @@ pip install -e ".[fetch]"
 python scripts/fetch_josaa.py --years 2023 2024 2025
 ```
 
-The script walks the archive form like a browser, one request per year and institute type, with pauses between requests. Preparatory-course ranks are kept in the file but not used for predictions. Institute home states (for home-state quota) are in `admitpath/home_states.py`, because JoSAA's tables don't list locations.
+`admitpath/data/tgeapcet_lastranks.csv` holds the TG EAPCET 2025 last ranks for Telangana state colleges, parsed from the official PDFs linked on tgeapcet.nic.in (first, second and final phase; each branch uses its latest phase). Only 2025 is published, so state-college answers don't show a trend. Refresh with `pip install pdfplumber` and `python scripts/fetch_tgeapcet.py`.
+
+The JoSAA script walks the archive form like a browser, one request per year and institute type, with pauses between requests. Preparatory-course ranks are kept in the file but not used for predictions. Institute home states (for home-state quota) are in `admitpath/home_states.py`, because JoSAA's tables don't list locations.
 
 ## Tests
 
@@ -126,7 +131,7 @@ The script walks the archive form like a browser, one request per year and insti
 pytest
 ```
 
-28 tests cover the data, spoken-name matching (NITW, IIT kgp, triple IT Allahabad…), quota rules (home state, Goa, J&K), category and female seats, the trend calculation, a full conversation, and real MCP `initialize`, `tools/list` and `tools/call` requests.
+48 tests cover the data, spoken-name matching (NITW, IIT kgp, triple IT Allahabad…), quota rules (home state, Goa, J&K), category and female seats, the trend calculation, a full conversation, Telangana college matching (BVRIT campuses, CBIT, VNR), Telangana categories, state-college comparisons, and real MCP `initialize`, `tools/list` and `tools/call` requests.
 
 ## Limits
 

@@ -29,17 +29,19 @@ InstType = Literal["IIT", "NIT", "IIIT", "GFTI"]
 mcp = MCPServer(
     "admitpath",
     title="AdmitPath",
-    description="Engineering admissions guide for families: realistic colleges from official JoSAA cutoffs, comparisons, "
-                "the counselling process explained, and a choice list.",
+    description="Engineering admissions guide for families: realistic colleges from official JoSAA and TG EAPCET cutoffs, "
+                "comparisons, the counselling process explained, and a choice list.",
     version=__version__,
     instructions=(
-        "AdmitPath helps an Indian family through JoSAA engineering admissions (IITs, NITs, IIITs and other government "
-        "institutes) after JEE. First save the student with set_student (name, JEE Main rank, category, category rank, "
-        "gender, home state = state where they passed class 12; JEE Advanced rank for IITs). Then use predict_colleges "
-        "for 'which colleges can she get', check_option for one college and branch, compare_options for two, "
-        "cutoff_trend for past cutoffs, and the choice-list tools to build the ordered preference list. Use "
-        "explain_term for words like float, slide, freeze, quota. Answers are spoken sentences: read them naturally. "
-        "Predictions are estimates from past official data, not guarantees."
+        "AdmitPath helps an Indian family with engineering admissions. It covers JoSAA (IITs, NITs, IIITs and other "
+        "government institutes, by JEE rank) and Telangana state colleges such as CBIT, VNR VJIET, BVRIT, Vasavi, MGIT "
+        "and JNTUH (TG EAPCET counselling, by EAPCET rank). Save the student with set_student (name, ranks, category, "
+        "gender, home state; eapcet_rank and telangana_category for Telangana colleges). Use predict_colleges for JoSAA "
+        "options and predict_telangana_colleges for state colleges; check_option and compare_options work for both kinds "
+        "(branch is optional; it defaults to CSE); college_info describes a college; cutoff_trend gives past cutoffs; the "
+        "choice-list tools build the JoSAA preference list; explain_term explains words like float, slide, freeze. "
+        "Pass college names exactly as the user said them, including places like 'in Hyderabad'. Answers are spoken "
+        "sentences: read them naturally. Predictions are estimates from past official data, not guarantees."
     ),
 )
 
@@ -58,14 +60,16 @@ def set_student(
     advanced_category_rank: Annotated[int | None, Field(gt=0, description="JEE Advanced category rank.")] = None,
     pwd: Annotated[bool | None, Field(description="True if the student has a benchmark disability (PwD).")] = None,
     pwd_rank: Annotated[int | None, Field(gt=0, description="PwD rank, if PwD.")] = None,
+    eapcet_rank: Annotated[int | None, Field(gt=0, description="TG EAPCET (TS EAMCET) rank, for Telangana state colleges.")] = None,
+    telangana_category: Annotated[str | None, Field(description="Telangana category: OC, BC-A, BC-B, BC-C, BC-D, BC-E, SC-I, SC-II, SC-III, ST or EWS.")] = None,
 ) -> str:
     """Save or update the student's details. Only the fields given are changed.
 
     Use for 'Riya got rank 15,000 in JEE Main, she's OBC from Telangana', 'her OBC rank is 3,500', 'she also got
-    2,800 in JEE Advanced'.
+    2,800 in JEE Advanced', 'her EAPCET rank is 6,000, BC-B'.
     """
     return tools.set_student(name, jee_main_rank, category, category_rank, gender, home_state,
-                             jee_advanced_rank, advanced_category_rank, pwd, pwd_rank)
+                             jee_advanced_rank, advanced_category_rank, pwd, pwd_rank, eapcet_rank, telangana_category)
 
 
 @mcp.tool(annotations=READ)
@@ -90,35 +94,60 @@ def predict_colleges(
 
 
 @mcp.tool(annotations=READ)
-def check_option(
-    institute: Annotated[str, Field(description="Institute as the user said it, e.g. 'NIT Warangal', 'IIT Bombay', 'IIIT Allahabad'.")],
-    branch: Annotated[str, Field(description="Branch, e.g. 'CSE', 'electrical'.")],
+def predict_telangana_colleges(
+    branch: Annotated[str | None, Field(description="Branch, e.g. 'CSE', 'ECE', 'AI and ML'. Defaults to CSE.")] = None,
+    hyderabad_only: Annotated[bool, Field(description="True to list only colleges in and around Hyderabad.")] = False,
+    per_band: Annotated[int, Field(ge=1, le=10, description="How many options to read out per band.")] = 3,
 ) -> str:
-    """The student's chance at one institute and branch, with past closing ranks and the trend.
+    """List Telangana state colleges (TG EAPCET counselling) as Safe, Target and Reach for the student's EAPCET rank.
 
-    Use for 'can she get CSE at NIT Warangal?', 'what are her chances at IIT Madras electrical?'.
+    Use for 'which Telangana colleges can she get with EAPCET?', 'which Hyderabad colleges for CSE?'.
+    """
+    return tools.predict_telangana_colleges(branch, hyderabad_only, per_band)
+
+
+@mcp.tool(annotations=READ)
+def check_option(
+    institute: Annotated[str, Field(description="College as the user said it, e.g. 'NIT Warangal', 'IIT Bombay', 'CBIT', 'BVRIT Hyderabad'.")],
+    branch: Annotated[str | None, Field(description="Branch, e.g. 'CSE', 'electrical'. Defaults to CSE.")] = None,
+) -> str:
+    """The student's chance at one college and branch, with cutoffs (JoSAA colleges or Telangana state colleges).
+
+    Use for 'can she get CSE at NIT Warangal?', 'what are her chances at CBIT?'.
     """
     return tools.check_option(institute, branch)
 
 
 @mcp.tool(annotations=READ)
 def compare_options(
-    institute_a: Annotated[str, Field(description="First institute.")],
-    branch_a: Annotated[str, Field(description="First branch.")],
-    institute_b: Annotated[str, Field(description="Second institute.")],
-    branch_b: Annotated[str, Field(description="Second branch.")],
+    institute_a: Annotated[str, Field(description="First college as the user said it, e.g. 'BVRIT in Hyderabad'.")],
+    institute_b: Annotated[str, Field(description="Second college as the user said it, e.g. 'CBIT'.")],
+    branch_a: Annotated[str | None, Field(description="First branch. Defaults to CSE.")] = None,
+    branch_b: Annotated[str | None, Field(description="Second branch. Defaults to the first branch.")] = None,
 ) -> str:
-    """Compare two institute-and-branch options for the student: chances, cutoffs and trend, and which is safer.
+    """Compare two colleges or college-and-branch options: location, type, cutoffs, and the student's chances.
 
-    Use for 'CSE at NIT Warangal or ECE at NIT Trichy?'.
+    Works for JoSAA colleges and Telangana state colleges. Use for 'compare BVRIT and CBIT', 'CSE at NIT Warangal
+    or ECE at NIT Trichy?', 'which is better, VNR or Vasavi?'.
     """
     return tools.compare_options(institute_a, branch_a, institute_b, branch_b)
 
 
 @mcp.tool(annotations=READ)
+def college_info(
+    college: Annotated[str, Field(description="College as the user said it, e.g. 'CBIT', 'NIT Warangal'.")],
+) -> str:
+    """Describe a college: where it is, what kind it is, how it admits, its branches and its CSE cutoff.
+
+    Use for 'tell me about CBIT', 'is BVRIT autonomous?', 'what is MGIT like?'.
+    """
+    return tools.college_info(college)
+
+
+@mcp.tool(annotations=READ)
 def cutoff_trend(
-    institute: Annotated[str, Field(description="Institute, e.g. 'NIT Calicut'.")],
-    branch: Annotated[str, Field(description="Branch, e.g. 'CSE'.")],
+    institute: Annotated[str, Field(description="College, e.g. 'NIT Calicut', 'CBIT'.")],
+    branch: Annotated[str | None, Field(description="Branch, e.g. 'CSE'. Defaults to CSE.")] = None,
 ) -> str:
     """Past final-round closing ranks for one institute and branch, year by year, and whether it's getting harder.
 

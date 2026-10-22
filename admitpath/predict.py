@@ -29,6 +29,8 @@ class Student:
     home_state: str | None = None
     pwd: bool = False
     pwd_rank: int | None = None             # PwD rank (used for PwD seats, Main-based)
+    eapcet_rank: int | None = None          # TG EAPCET rank, for Telangana state colleges
+    ts_category: str | None = None          # Telangana category: OC, BC_A..BC_E, SC_I..SC_III, ST, EWS
 
     @property
     def female(self) -> bool:

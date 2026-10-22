@@ -5,7 +5,9 @@ from __future__ import annotations
 from dataclasses import replace
 
 from . import store, terms
+from . import tools_tg as tg
 from .catalog import Institute, Program, catalog, not_in_josaa
+from .tgeapcet import tg_catalog, ts_category
 from .home_states import normalise_state
 from .predict import Option, Student, evaluate, grouped, predict, trend_words
 
@@ -65,6 +67,18 @@ def _category(text: str | None) -> str | None:
     return None
 
 
+def is_state_college(query: str) -> bool:
+    """True when the words name a Telangana state college (TG EAPCET) rather than a JoSAA institute."""
+    if not query or not_in_josaa(query):
+        return False
+    college, _, strength = tg_catalog().find(query)
+    if not college:
+        return False
+    if strength >= 3:
+        return True
+    return catalog().find_institute(query) is None
+
+
 def _resolve(institute: str, branch: str | None) -> tuple[Institute | None, Program | None, str | None]:
     msg = not_in_josaa(institute)
     if msg:
@@ -88,7 +102,8 @@ def _resolve(institute: str, branch: str | None) -> tuple[Institute | None, Prog
 def set_student(name: str | None = None, jee_main_rank: int | None = None, category: str | None = None,
                 category_rank: int | None = None, gender: str | None = None, home_state: str | None = None,
                 jee_advanced_rank: int | None = None, advanced_category_rank: int | None = None,
-                pwd: bool | None = None, pwd_rank: int | None = None) -> str:
+                pwd: bool | None = None, pwd_rank: int | None = None,
+                eapcet_rank: int | None = None, telangana_category: str | None = None) -> str:
     current = _student()
     base = None
     if name and current and current.name.lower() != name.lower():
@@ -123,6 +138,18 @@ def set_student(name: str | None = None, jee_main_rank: int | None = None, categ
         updates["pwd"] = bool(pwd)
     if pwd_rank:
         updates["pwd_rank"] = int(pwd_rank)
+    if eapcet_rank:
+        updates["eapcet_rank"] = int(eapcet_rank)
+    if telangana_category:
+        tc = ts_category(telangana_category)
+        if not tc:
+            return (f"I didn't understand the Telangana category {telangana_category}. Say OC, BC-A, BC-B, BC-C, BC-D, "
+                    f"BC-E, SC-I, SC-II, SC-III, ST or EWS.")
+        updates["ts_category"] = tc
+    elif category and "ts_category" not in updates and not s.ts_category:
+        guess = {"OPEN": "OC", "EWS": "EWS", "ST": "ST"}.get(updates.get("category", ""))
+        if guess:
+            updates["ts_category"] = guess
     s = replace(s, **updates)
     store.save_student(s)
 
@@ -136,17 +163,21 @@ def set_student(name: str | None = None, jee_main_rank: int | None = None, categ
         parts.append(f"from {s.home_state}")
     if s.adv_rank:
         parts.append(f"JEE Advanced rank {n(s.adv_rank)}")
+    if s.eapcet_rank:
+        parts.append(f"TG EAPCET rank {n(s.eapcet_rank)}" + (f" ({s.ts_category.replace('_', '-')})" if s.ts_category else ""))
     text = ", ".join(parts) + "."
+    if s.eapcet_rank and not s.ts_category:
+        text += " For Telangana colleges, tell me the Telangana category, like OC, BC-B or SC-II."
     missing = []
-    if not s.main_rank:
-        missing.append("the JEE Main rank")
-    if s.category != "OPEN" and not s.main_category_rank:
+    if not s.main_rank and not s.eapcet_rank:
+        missing.append("a JEE Main rank (for JoSAA colleges) or a TG EAPCET rank (for Telangana colleges)")
+    if s.main_rank and s.category != "OPEN" and not s.main_category_rank:
         missing.append(f"the {s.category} category rank, so I can check category seats too")
-    if not s.home_state:
+    if s.main_rank and not s.home_state:
         missing.append("the state where they passed class 12, for NIT home-state seats")
     if missing:
         text += " I still need " + " and ".join(missing) + "."
-    if not s.adv_rank:
+    if s.main_rank and not s.adv_rank:
         text += " IITs need a JEE Advanced rank; tell me if they have one."
     return text
 
@@ -207,7 +238,10 @@ def predict_colleges(branch: str | None = None, institute_type: str | None = Non
     return " ".join(lines)
 
 
-def check_option(institute: str, branch: str) -> str:
+def check_option(institute: str, branch: str | None = None) -> str:
+    if is_state_college(institute):
+        return tg.check(institute, branch, _student())
+    branch = branch or "computer science"
     inst, prog, err = _resolve(institute, branch)
     if err:
         return err
@@ -222,7 +256,17 @@ def check_option(institute: str, branch: str) -> str:
     return describe(o)
 
 
-def compare_options(institute_a: str, branch_a: str, institute_b: str, branch_b: str) -> str:
+def compare_options(institute_a: str, branch_a: str | None, institute_b: str, branch_b: str | None) -> str:
+    state_a, state_b = is_state_college(institute_a), is_state_college(institute_b)
+    if state_a and state_b:
+        return tg.compare(institute_a, institute_b, branch_a or branch_b, _student())
+    if state_a or state_b:
+        a = check_option(institute_a, branch_a or branch_b)
+        b = check_option(institute_b, branch_b or branch_a)
+        return (f"These two admit through different exams: JoSAA uses JEE ranks, and Telangana state colleges use "
+                f"TG EAPCET ranks, so their cutoffs can't be compared directly. First, {a} Second, {b}")
+    branch_a = branch_a or branch_b or "computer science"
+    branch_b = branch_b or branch_a
     s = _student()
     if not s:
         return NO_STUDENT
@@ -245,7 +289,10 @@ def compare_options(institute_a: str, branch_a: str, institute_b: str, branch_b:
     return text + " " + verdict + " In choice filling, put the one they'd rather join first; order doesn't hurt the other."
 
 
-def cutoff_trend(institute: str, branch: str) -> str:
+def cutoff_trend(institute: str, branch: str | None = None) -> str:
+    if is_state_college(institute):
+        return tg.check(institute, branch, _student()) + " Only the 2025 statement is published, so there's no trend yet."
+    branch = branch or "computer science"
     inst, prog, err = _resolve(institute, branch)
     if err:
         return err
@@ -264,7 +311,27 @@ def cutoff_trend(institute: str, branch: str) -> str:
             f"{history}; {trend_words(seats)}.")
 
 
+def college_info(college: str) -> str:
+    if is_state_college(college):
+        return tg.info(college)
+    inst, _, err = _resolve(college, None)
+    if err:
+        return err
+    kind = {"IIT": "an IIT", "NIT": "an NIT", "IIIT": "an IIIT", "GFTI": "a centrally funded institute"}[inst.kind]
+    return (f"{inst.name} is {kind}, admitting through JoSAA with "
+            f"{'JEE Advanced' if inst.kind == 'IIT' else 'JEE Main'} ranks. " + find_programs(college))
+
+
+def predict_telangana_colleges(branch: str | None = None, hyderabad_only: bool = False, per_band: int = 3) -> str:
+    s = _student()
+    if not s:
+        return NO_STUDENT.replace("JEE Main rank", "TG EAPCET rank")
+    return tg.predict(s, branch, hyderabad_only, per_band)
+
+
 def find_programs(institute: str) -> str:
+    if is_state_college(institute):
+        return tg.info(institute)
     inst, _, err = _resolve(institute, None)
     if err:
         return err
