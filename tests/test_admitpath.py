@@ -162,3 +162,7 @@ def test_mcp_tools_list_and_call():
         out = rpc(client, "tools/call", {"name": "explain_term", "arguments": {"term": "freeze"}})
         assert "accept the seat" in out["result"]["content"][0]["text"]
         assert client.get("/healthz").json()["years"] == [2023, 2024, 2025]
+        page = client.get("/")
+        assert page.status_code == 200 and "Alexa+" in page.text
+        assert client.get("/static/app.js").status_code == 200
+        assert client.get("/static/../server.py").status_code == 404

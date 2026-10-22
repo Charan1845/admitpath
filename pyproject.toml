@@ -22,7 +22,7 @@ admitpath = "admitpath.server:main"
 include = ["admitpath*"]
 
 [tool.setuptools.package-data]
-admitpath = ["data/*.csv"]
+admitpath = ["data/*.csv", "web/*"]
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

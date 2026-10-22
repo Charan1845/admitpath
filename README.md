@@ -79,6 +79,17 @@ python scripts/smoke_test.py http://127.0.0.1:8000/mcp
 
 Or use the [MCP Inspector](https://github.com/modelcontextprotocol/inspector) (Streamable HTTP, URL above): `npx @modelcontextprotocol/inspector`.
 
+### Simulated Alexa+ (demo)
+
+Open `http://localhost:8000/` in Chrome or Edge. It's an Echo Show-style page that plays the part of Alexa+:
+
+- **Speak or type.** Voice input uses the browser's speech recognition (`en-IN`); answers are read aloud.
+- **Every answer is a real MCP call.** The page is an MCP client: it runs `initialize` and `tools/list`, then a `tools/call` for each question, and shows each JSON-RPC request and response under "Under the hood".
+- **Cards like an Echo Show:** Safe / Target / Reach columns, cutoff history charts, side-by-side comparisons, the choice list.
+- **What's simulated:** in real Alexa+, Alexa's AI picks the tool and arguments. Here a small intent parser in `admitpath/web/app.js` does that (with follow-ups such as "add it to her list"). The demo prompts under the input box walk through a full conversation.
+
+To start the demo from a blank profile, stop the server and delete `data/admitpath.db`.
+
 ### Connect to Alexa+
 
 Alexa+ needs a public HTTPS URL. A free Cloudflare quick tunnel works:

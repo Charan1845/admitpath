@@ -1,0 +1,49 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>AdmitPath on Alexa+ (simulated)</title>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <header class="top">
+    <div class="brand"><span class="ring-dot"></span>Alexa+ <span class="sim">simulated</span></div>
+    <div class="addon">Add-on: <b>AdmitPath</b> · JoSAA engineering admissions</div>
+    <div class="status" id="status">Connecting…</div>
+  </header>
+
+  <main class="layout">
+    <!-- The "Echo Show" -->
+    <section class="device">
+      <div class="screen">
+        <div id="chat" class="chat" aria-live="polite">
+          <div class="msg alexa intro">
+            <p>Hi! I'm Alexa with the <b>AdmitPath</b> add-on. Tell me about the student, then ask which colleges they can get.</p>
+          </div>
+        </div>
+        <div id="card" class="card-area"></div>
+      </div>
+      <div class="bar" id="bar"></div>
+      <form id="ask" class="ask" autocomplete="off">
+        <button type="button" id="mic" class="mic" title="Speak (Chrome or Edge)" aria-label="Speak">🎤</button>
+        <input id="q" type="text" placeholder="Say or type: Riya got 15,000 in JEE Main, OBC rank 3,500, from Telangana" aria-label="Ask Alexa">
+        <button type="submit" class="send">Ask</button>
+        <button type="button" id="voice" class="voice" title="Read answers aloud" aria-pressed="true">🔊</button>
+      </form>
+      <div class="chips" id="chips"></div>
+    </section>
+
+    <!-- Under the hood: the real MCP traffic -->
+    <aside class="hood">
+      <div class="hood-head">
+        <h2>Under the hood</h2>
+        <p>Each answer is a real MCP <code>tools/call</code> to the AdmitPath server (spec 2025-11-25, Streamable HTTP). In real Alexa+, Alexa's AI picks the tool; in this simulation a small intent parser does.</p>
+      </div>
+      <div id="trace" class="trace"><p class="muted">Ask something to see the request and response.</p></div>
+    </aside>
+  </main>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>

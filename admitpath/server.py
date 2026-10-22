@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import argparse
 import os
+from pathlib import Path
 from typing import Annotated, Literal
 
 from mcp.server import MCPServer
@@ -15,7 +16,7 @@ from mcp.server.transport_security import TransportSecuritySettings
 from mcp.types import ToolAnnotations
 from pydantic import Field
 from starlette.requests import Request
-from starlette.responses import JSONResponse, Response
+from starlette.responses import FileResponse, JSONResponse, PlainTextResponse, Response
 
 from . import __version__, tools
 from .catalog import catalog
@@ -185,6 +186,25 @@ def whats_next(
 ) -> str:
     """The usual order of JoSAA steps, or what comes after a given step. Use for 'what happens after round 1?'."""
     return tools.whats_next(step)
+
+
+# ---------------- simulated Alexa+ page (demo) ----------------
+
+WEB = Path(__file__).resolve().parent / "web"
+_TYPES = {".js": "text/javascript", ".css": "text/css", ".svg": "image/svg+xml", ".png": "image/png"}
+
+
+@mcp.custom_route("/", methods=["GET"])
+async def home(request: Request) -> Response:
+    return FileResponse(WEB / "index.html", headers={"Cache-Control": "no-cache"})
+
+
+@mcp.custom_route("/static/{path:path}", methods=["GET"])
+async def static_file(request: Request) -> Response:
+    target = (WEB / request.path_params["path"]).resolve()
+    if WEB not in target.parents or not target.is_file() or target.suffix not in _TYPES:
+        return PlainTextResponse("Not found", status_code=404)
+    return FileResponse(target, media_type=_TYPES[target.suffix], headers={"Cache-Control": "no-cache"})
 
 
 @mcp.custom_route("/healthz", methods=["GET"])
