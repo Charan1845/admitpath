@@ -1,0 +1,11 @@
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+*.egg-info/
+build/
+dist/
+# Saved student profiles and choice lists (the cutoff data in admitpath/data/ is committed)
+/data/
+.claude/
+.env*

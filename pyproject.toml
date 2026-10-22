@@ -1,0 +1,28 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "admitpath"
+version = "0.1.0"
+description = "Alexa+ add-on (MCP server) that guides families through JoSAA engineering admissions using official cutoffs."
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.10"
+dependencies = ["mcp>=2.3", "uvicorn>=0.30", "starlette>=0.40", "pydantic>=2"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "httpx>=0.27", "requests>=2.31"]
+fetch = ["requests>=2.31", "beautifulsoup4>=4.12"]
+
+[project.scripts]
+admitpath = "admitpath.server:main"
+
+[tool.setuptools.packages.find]
+include = ["admitpath*"]
+
+[tool.setuptools.package-data]
+admitpath = ["data/*.csv"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
