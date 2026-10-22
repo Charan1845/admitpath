@@ -8,37 +8,58 @@
 </head>
 <body>
   <header class="top">
-    <div class="brand"><span class="ring-dot"></span>Alexa+ <span class="sim">simulated</span></div>
-    <div class="addon">Add-on: <b>AdmitPath</b> · JoSAA engineering admissions</div>
-    <div class="status" id="status">Connecting…</div>
+    <div class="brand"><span class="ring"></span><span>alexa<b>+</b></span><span class="sim">simulated</span></div>
+    <div class="addon"><span class="addon-icon">A</span><div><b>AdmitPath</b><small>JoSAA engineering admissions</small></div></div>
+    <div class="top-right">
+      <span class="status" id="status"><i></i>Connecting…</span>
+      <button type="button" id="hood-toggle" class="ghost" aria-pressed="true">Under the hood</button>
+    </div>
   </header>
 
-  <main class="layout">
+  <main class="layout" id="layout">
     <!-- The "Echo Show" -->
     <section class="device">
       <div class="screen">
         <div id="chat" class="chat" aria-live="polite">
-          <div class="msg alexa intro">
-            <p>Hi! I'm Alexa with the <b>AdmitPath</b> add-on. Tell me about the student, then ask which colleges they can get.</p>
+          <div class="msg alexa">
+            <span class="avatar"></span>
+            <div class="bubble"><p>Hi! I'm Alexa with the AdmitPath add-on. Tell me about the student, then ask which colleges they can get.</p></div>
           </div>
         </div>
-        <div id="card" class="card-area"></div>
+        <div id="card" class="card-area">
+          <div class="idle">
+            <div class="idle-ring"></div>
+            <h1>Engineering admissions,<br>by voice</h1>
+            <p>Official JoSAA cutoffs · 2023 to 2025 · 130 institutes</p>
+            <div class="idle-tags"><span>Safe</span><span>Target</span><span>Reach</span></div>
+          </div>
+        </div>
+      </div>
+
+      <div class="dock">
+        <form id="ask" class="ask" autocomplete="off">
+          <button type="button" id="mic" class="mic" title="Speak (Chrome or Edge)" aria-label="Speak">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 15a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v6a3 3 0 0 0 3 3Zm5-3a5 5 0 0 1-10 0H5a7 7 0 0 0 6 6.92V21h2v-2.08A7 7 0 0 0 19 12h-2Z"/></svg>
+          </button>
+          <input id="q" type="text" placeholder="Ask Alexa…" aria-label="Ask Alexa">
+          <button type="button" id="voice" class="icon-btn" title="Read answers aloud" aria-label="Read answers aloud" aria-pressed="true">
+            <svg class="on-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm12.5 3a4.5 4.5 0 0 0-2.5-4v8a4.5 4.5 0 0 0 2.5-4Zm-2.5-8.7v2.06a7 7 0 0 1 0 13.28v2.06a9 9 0 0 0 0-17.4Z"/></svg>
+            <svg class="off-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M4 9v6h4l5 4V5L8 9H4Zm16.6 3 2.1-2.1-1.4-1.4-2.1 2.1-2.1-2.1-1.4 1.4 2.1 2.1-2.1 2.1 1.4 1.4 2.1-2.1 2.1 2.1 1.4-1.4-2.1-2.1Z"/></svg>
+          </button>
+          <button type="submit" class="send" aria-label="Ask">
+            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M3 20.5 21 12 3 3.5 3 10l12 2-12 2v6.5Z"/></svg>
+          </button>
+        </form>
+        <div class="chips" id="chips"></div>
       </div>
       <div class="bar" id="bar"></div>
-      <form id="ask" class="ask" autocomplete="off">
-        <button type="button" id="mic" class="mic" title="Speak (Chrome or Edge)" aria-label="Speak">🎤</button>
-        <input id="q" type="text" placeholder="Say or type: Riya got 15,000 in JEE Main, OBC rank 3,500, from Telangana" aria-label="Ask Alexa">
-        <button type="submit" class="send">Ask</button>
-        <button type="button" id="voice" class="voice" title="Read answers aloud" aria-pressed="true">🔊</button>
-      </form>
-      <div class="chips" id="chips"></div>
     </section>
 
     <!-- Under the hood: the real MCP traffic -->
-    <aside class="hood">
+    <aside class="hood" id="hood">
       <div class="hood-head">
         <h2>Under the hood</h2>
-        <p>Each answer is a real MCP <code>tools/call</code> to the AdmitPath server (spec 2025-11-25, Streamable HTTP). In real Alexa+, Alexa's AI picks the tool; in this simulation a small intent parser does.</p>
+        <p>Every answer is a real MCP <code>tools/call</code> to the AdmitPath server · spec 2025-11-25 · Streamable HTTP. In real Alexa+, Alexa's AI picks the tool; here a small intent parser does.</p>
       </div>
       <div id="trace" class="trace"><p class="muted">Ask something to see the request and response.</p></div>
     </aside>

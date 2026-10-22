@@ -167,6 +167,8 @@ def _spoken(o: Option, branch_given: bool) -> str:
     short = o.program.short
     if "(B.Tech)" in short and not any(w in short.lower() for w in ("artificial", "data science", "(ai", "cyber", "iot")):
         return o.institute.short
+    if short.endswith("(Dual Degree)") and short.count("(") == 1:
+        return f"{o.institute.short} (dual degree)"
     return f"{o.institute.short}, {short}"
 
 

@@ -262,10 +262,18 @@
   function addMsg(kind, text, tool) {
     var div = document.createElement("div");
     div.className = "msg " + kind;
-    var p = document.createElement("p");
-    p.textContent = text;
-    div.appendChild(p);
-    if (tool) { var s = document.createElement("span"); s.className = "tool"; s.textContent = "⚙ MCP " + tool; div.appendChild(s); }
+    if (kind.indexOf("alexa") === 0) { var av = document.createElement("span"); av.className = "avatar"; div.appendChild(av); }
+    var bubble = document.createElement("div");
+    bubble.className = "bubble";
+    if (kind.indexOf("thinking") >= 0) {
+      bubble.innerHTML = '<span class="dots"><span></span><span></span><span></span></span>';
+    } else {
+      var p = document.createElement("p");
+      p.textContent = text;
+      bubble.appendChild(p);
+    }
+    if (tool) { var s = document.createElement("span"); s.className = "tool"; s.textContent = "MCP · " + tool; bubble.appendChild(s); }
+    div.appendChild(bubble);
     $("chat").appendChild(div);
     $("chat").scrollTop = $("chat").scrollHeight;
     return div;
@@ -302,7 +310,7 @@
         var list = m[2].replace(/, and (\d+) more$/, function (_, k) { more = "+" + k + " more"; return ""; });
         items = list.split("; ");
       }
-      html += '<div class="band ' + b + '"><h4><span>' + b + "</span><span>" + (m ? m[1] : 0) + "</span></h4><ul>" +
+      html += '<div class="band ' + b + '"><h4><span>' + b + '</span><span class="n">' + (m ? m[1] : 0) + "</span></h4><ul>" +
         (items.length ? items.map(function (x) { return "<li>" + esc(x) + "</li>"; }).join("") : '<li class="more">None</li>') +
         "</ul>" + (more ? '<div class="more">' + more + "</div>" : "") + "</div>";
     });
@@ -352,17 +360,17 @@
     var who = (text.match(/^(\w+)'s/) || [])[1] || "Student";
     if (!items.length) return textCard({ tool: who + "'s choice list", text: text });
     return '<div class="card"><h3>' + esc(who) + "'s JoSAA choice list</h3><div class=\"sub\">In order of preference</div><ol class=\"choices\">" +
-      items.map(function (x) { return "<li>" + esc(x[2]) + " " + badge(x[3] === "not eligible" ? "Unlikely" : x[3]) + "</li>"; }).join("") + "</ol>" +
-      (/no safe option/.test(text) ? '<div class="verdict" style="color:var(--target);background:#2a2410">Add a few safe options lower down.</div>' : "") + "</div>";
+      items.map(function (x) { return '<li><span class="t">' + esc(x[2]) + "</span>" + badge(x[3] === "not eligible" ? "Unlikely" : x[3]) + "</li>"; }).join("") + "</ol>" +
+      (/no safe option/.test(text) ? '<div class="verdict warn">Add a few safe options lower down.</div>' : "") + "</div>";
   }
 
   function profileCard(text) {
     var m = text.match(/Saved (.*?)\.(?: |$)/);
     var bits = m ? m[1].split(", ") : [];
     var rest = text.replace(/^Saved .*?\.\s*/, "");
-    return '<div class="card"><h3>' + esc(bits[0] || "Student") + '</h3><div class="sub">Student profile</div><ul class="choices" style="list-style:none;padding:0">' +
-      bits.slice(1).map(function (b) { return "<li>" + esc(b) + "</li>"; }).join("") + "</ul>" +
-      (rest ? '<p class="sub" style="margin-top:10px">' + esc(rest) + "</p>" : "") + "</div>";
+    return '<div class="card"><h3>' + esc(bits[0] || "Student") + '</h3><div class="sub">Student profile</div><ul class="profile">' +
+      bits.slice(1).map(function (b) { return "<li>" + esc(b.charAt(0).toUpperCase() + b.slice(1)) + "</li>"; }).join("") + "</ul>" +
+      (rest ? '<div class="verdict warn">' + esc(rest) + "</div>" : "") + "</div>";
   }
 
   var TITLES = { explain_term: "In plain words", whats_next: "JoSAA process", find_programs: "Programs offered", get_student: "Student" };
@@ -389,7 +397,7 @@
   // ---------------- voice ----------------
   var voiceOn = true;
   try { voiceOn = localStorage.getItem("ap_voice") !== "0"; } catch (e) { /* storage blocked */ }
-  function paintVoice() { $("voice").textContent = voiceOn ? "🔊" : "🔇"; $("voice").setAttribute("aria-pressed", String(voiceOn)); }
+  function paintVoice() { $("voice").classList.toggle("off", !voiceOn); $("voice").setAttribute("aria-pressed", String(voiceOn)); }
   paintVoice();
   $("voice").addEventListener("click", function () {
     voiceOn = !voiceOn;
@@ -435,26 +443,19 @@
     ask(v);
   });
 
-  // ---------------- demo prompts ----------------
-  var DEMO = [
-    "Riya got 15,000 in JEE Main. She's OBC, rank 3,500, from Telangana",
-    "Which NITs can she get for computer science?",
-    "Can she get CSE at NIT Warangal?",
-    "CSE at NIT Warangal or ECE at NIT Trichy?",
-    "Add ECE at NIT Trichy to her list at the top",
-    "Add CSE at NIT Calicut",
-    "Read her choices",
-    "What does float mean?",
-    "How has NIT Calicut CSE's cutoff changed?",
-    "What about IIIT Hyderabad?"
-  ];
-  DEMO.forEach(function (q) {
-    var b = document.createElement("button");
-    b.className = "chip";
-    b.type = "button";
-    b.textContent = q;
-    b.addEventListener("click", function () { ask(q); });
-    $("chips").appendChild(b);
+  // ---------------- one example to get started ----------------
+  var EXAMPLE = "How has NIT Calicut CSE's cutoff changed?";
+  var chip = document.createElement("button");
+  chip.className = "chip";
+  chip.type = "button";
+  chip.innerHTML = "<b>Try</b>" + esc(EXAMPLE);
+  chip.addEventListener("click", function () { ask(EXAMPLE); });
+  $("chips").appendChild(chip);
+
+  // ---------------- show or hide the MCP panel ----------------
+  $("hood-toggle").addEventListener("click", function () {
+    var full = $("layout").classList.toggle("full");
+    this.setAttribute("aria-pressed", String(!full));
   });
 
   // ---------------- connect ----------------
@@ -465,9 +466,9 @@
       return rpc("tools/list").then(function (list) {
         trace(list, "tools/list");
         var n = list.response.result.tools.length;
-        $("status").textContent = "Connected · " + info.title + " " + info.version + " · " + n + " tools · MCP " + init.response.result.protocolVersion;
+        $("status").innerHTML = "<i></i>" + esc(info.title) + " connected · " + n + " tools · MCP " + esc(init.response.result.protocolVersion);
         $("status").className = "status ok";
       });
     })
-    .catch(function () { $("status").textContent = "Can't reach the AdmitPath server"; $("status").className = "status err"; });
+    .catch(function () { $("status").innerHTML = "<i></i>Can't reach the AdmitPath server"; $("status").className = "status err"; });
 })();
