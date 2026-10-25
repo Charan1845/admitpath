@@ -2,14 +2,6 @@
 
 **"Alexa, which colleges can Riya get for computer science?"**
 
-<p align="center">
-  <a href="https://github.com/Charan1845/admitpath/raw/main/assets/AdmitPath-demo.mp4">
-    <img src="assets/admitpath-demo.gif" alt="AdmitPath demo: Safe/Target/Reach for NITs, then BVRIT vs CBIT compared" width="860">
-  </a>
-  <br>
-  <sub>▶ <a href="https://github.com/Charan1845/admitpath/raw/main/assets/AdmitPath-demo.mp4">Watch the full demo with narration (1:54)</a></sub>
-</p>
-
 AdmitPath is an **Alexa+ add-on**: a self-hosted **MCP server** (spec 2025-11-25, Streamable HTTP) in Python that guides a family through **JoSAA engineering admissions** after JEE. It answers from **official JoSAA final-round opening and closing ranks for 2023 to 2025** (33,560 rows, 130 institutes: IITs, NITs, IIITs and other government institutes).
 
 Every year families face a maze: over 100 institutes, hundreds of branches, quotas, categories, several rounds, and words like float, slide and freeze. Web "college predictors" turn a rank into a list. AdmitPath works by voice and guides the whole decision:
